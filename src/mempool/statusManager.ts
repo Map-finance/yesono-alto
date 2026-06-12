@@ -1,5 +1,6 @@
 import type { HexData32, UserOperationStatus } from "@alto/types"
-import { Redis } from "ioredis"
+import { createRedis } from "@alto/utils"
+import type { Redis } from "ioredis"
 import type { AltoConfig } from "../createConfig"
 import { userOperationStatusSchema } from "../types/schemas"
 
@@ -83,7 +84,7 @@ class RedisUserOperationStatusStore implements UserOperationStatusStore {
         ttlSeconds?: number
         redisEndpoint: string
     }) {
-        this.redis = new Redis(redisEndpoint)
+        this.redis = createRedis(redisEndpoint, { cluster: config.redisCluster })
         this.keyPrefix = `${config.redisKeyPrefix}:${config.chainId}:userop-status`
         this.ttlSeconds = ttlSeconds
     }

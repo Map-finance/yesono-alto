@@ -1,0 +1,32 @@
+# Local Redis Cluster (cluster-mode-enabled) for verifying alto --redis-cluster.
+# Spins up a single-shard cluster (1 master + 0 replicas) which mirrors the
+# topology shape of AWS ElastiCache Cluster Mode Enabled. Sufficient to
+# exercise the CLUSTER protocol and ioredis Cluster client paths.
+#
+# Usage:
+#   docker compose -f docker-compose.redis-cluster.yml up -d
+#   # then run alto with:
+#   pnpm start -- --redis-cluster true --redis-endpoint redis://127.0.0.1:7000 ...
+#   # tear down:
+#   docker compose -f docker-compose.redis-cluster.yml down -v
+
+services:
+  redis-cluster:
+    image: grokzen/redis-cluster:7.0.10
+    container_name: alto-redis-cluster
+    environment:
+      # 3 masters across ports 7000-7002, 0 replicas — minimal cluster
+      # topology that still exercises the CLUSTER NODES / MOVED paths.
+      IP: 0.0.0.0
+      INITIAL_PORT: 7000
+      MASTERS: 3
+      SLAVES_PER_MASTER: 0
+    ports:
+      - "7000:7000"
+      - "7001:7001"
+      - "7002:7002"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "7000", "cluster", "info"]
+      interval: 3s
+      timeout: 5s
+      retries: 10

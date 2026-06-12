@@ -38,6 +38,28 @@ const preFlightChecks = async (config: AltoConfig): Promise<void> => {
         )
     }
 
+    // Guard against the AWS ElastiCache Cluster-Mode-Enabled "clustercfg.*"
+    // endpoint being used with the non-cluster client — this is the most
+    // common misconfiguration and would silently produce READONLY errors.
+    if (
+        config.redisEndpoint &&
+        config.redisEndpoint.includes("clustercfg.") &&
+        !config.redisCluster
+    ) {
+        throw new Error(
+            "redis-endpoint looks like an ElastiCache Cluster configuration endpoint (clustercfg.*) but --redis-cluster is false. Set --redis-cluster true."
+        )
+    }
+    if (
+        config.redisEventsQueueEndpoint &&
+        config.redisEventsQueueEndpoint.includes("clustercfg.") &&
+        !config.redisCluster
+    ) {
+        throw new Error(
+            "redis-events-queue-endpoint looks like an ElastiCache Cluster configuration endpoint (clustercfg.*) but --redis-cluster is false. Set --redis-cluster true."
+        )
+    }
+
     for (const entrypoint of config.entrypoints) {
         const entryPointCode = await config.publicClient.getCode({
             address: entrypoint

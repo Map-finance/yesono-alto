@@ -6,11 +6,12 @@ import type {
     SubmittedBundleInfo
 } from "@alto/types"
 import {
+    createRedis,
     recoverableJsonParseWithBigint,
     recoverableJsonStringifyWithBigint
 } from "@alto/utils"
 import Queue from "bull"
-import Redis from "ioredis"
+import type Redis from "ioredis"
 import type { Logger } from "pino"
 import type { AltoConfig } from "../createConfig"
 
@@ -169,9 +170,14 @@ export async function persistShutdownState({
     const redisEndpoint = config.redisEndpoint
 
     try {
-        const redis = new Redis(redisEndpoint)
+        const redis = createRedis(redisEndpoint, {
+            cluster: config.redisCluster
+        })
         const queueName = getQueueName(config.chainId)
         const restorationQueue = new Queue(queueName, {
+            // Under Redis Cluster, BullMQ requires a hash-tagged prefix
+            // so all internal queue keys hash to the same slot.
+            prefix: config.redisCluster ? "{alto-bull}" : undefined,
             createClient: () => {
                 return redis
             },
@@ -292,33 +298,45 @@ export async function restoreShutdownState({
         let subscriber: Redis
 
         const restorationQueue = new Queue(queueName, {
+            // Under Redis Cluster, BullMQ requires a hash-tagged prefix
+            // so all internal queue keys hash to the same slot.
+            prefix: config.redisCluster ? "{alto-bull}" : undefined,
             createClient: (type, redisOpts) => {
                 switch (type) {
                     case "client": {
                         if (!client) {
-                            client = new Redis(redisEndpoint, {
-                                ...redisOpts,
-                                enableReadyCheck: false,
-                                maxRetriesPerRequest: null
+                            client = createRedis(redisEndpoint, {
+                                cluster: config.redisCluster,
+                                redisOptions: {
+                                    ...redisOpts,
+                                    enableReadyCheck: false,
+                                    maxRetriesPerRequest: null
+                                }
                             })
                         }
                         return client
                     }
                     case "subscriber": {
                         if (!subscriber) {
-                            subscriber = new Redis(redisEndpoint, {
-                                ...redisOpts,
-                                enableReadyCheck: false,
-                                maxRetriesPerRequest: null
+                            subscriber = createRedis(redisEndpoint, {
+                                cluster: config.redisCluster,
+                                redisOptions: {
+                                    ...redisOpts,
+                                    enableReadyCheck: false,
+                                    maxRetriesPerRequest: null
+                                }
                             })
                         }
                         return subscriber
                     }
                     case "bclient":
-                        return new Redis(redisEndpoint, {
-                            ...redisOpts,
-                            enableReadyCheck: false,
-                            maxRetriesPerRequest: null
+                        return createRedis(redisEndpoint, {
+                            cluster: config.redisCluster,
+                            redisOptions: {
+                                ...redisOpts,
+                                enableReadyCheck: false,
+                                maxRetriesPerRequest: null
+                            }
                         })
                     default:
                         throw new Error(`Unexpected connection type: ${type}`)

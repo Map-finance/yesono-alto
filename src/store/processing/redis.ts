@@ -1,6 +1,6 @@
 import type { UserOpInfo, UserOperation } from "@alto/types"
-import { isDeployment } from "@alto/utils"
-import { Redis } from "ioredis"
+import { createRedis, isDeployment } from "@alto/utils"
+import type { Redis } from "ioredis"
 import type { Address, Hex } from "viem"
 import type { AltoConfig } from "../../createConfig"
 import type { ConflictType } from "../types"
@@ -44,9 +44,14 @@ export class RedisProcessingStore implements ProcessingStore {
         entryPoint: Address
         redisEndpoint: string
     }) {
-        this.redis = new Redis(redisEndpoint)
+        this.redis = createRedis(redisEndpoint, {
+            cluster: config.redisCluster
+        })
 
-        const redisPrefix = `${config.redisKeyPrefix}:${config.chainId}:${entryPoint}:processing`
+        // Hash tag groups all four conflict sets into a single slot so the
+        // MULTI blocks in addProcessing / removeProcessing / wouldConflict
+        // remain legal under Redis Cluster.
+        const redisPrefix = `${config.redisKeyPrefix}:{${config.chainId}:${entryPoint}:processing}`
         this.processingUserOpsSet = `${redisPrefix}:userOps`
         this.processingSenderNonceSet = `${redisPrefix}:senderNonce`
         this.processingDeploymentSet = `${redisPrefix}:deployment`

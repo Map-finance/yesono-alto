@@ -192,6 +192,13 @@ export const redisOptions: CliCommandOptions<IRedisArgsInput> = {
         type: "string",
         require: false
     },
+    "redis-cluster": {
+        description:
+            "Connect to Redis in Cluster Mode (use ioredis Cluster client). Required for AWS ElastiCache Cluster Mode Enabled / clustercfg.* endpoints",
+        type: "boolean",
+        require: false,
+        default: false
+    },
     "redis-events-queue-endpoint": {
         description: "Redis endpoint for userOp events queue",
         type: "string",

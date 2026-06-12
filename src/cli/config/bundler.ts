@@ -335,6 +335,7 @@ export const redisArgsSchema = z.object({
     "enable-redis-receipt-cache": z.boolean().default(false),
     "redis-key-prefix": z.string().default("alto"),
     "redis-endpoint": z.string().optional(),
+    "redis-cluster": z.boolean().default(false),
     "redis-events-queue-endpoint": z.string().optional(),
     "redis-events-queue-name": z.string().optional(),
     "redis-events-queue-flush-interval": z.number().default(1000)

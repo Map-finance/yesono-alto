@@ -20,9 +20,9 @@
  * - Read operations ignore expired entries without removing them
  */
 
-import Redis from "ioredis"
+import { Redis } from "ioredis"
 
-import type { Logger } from "@alto/utils"
+import { type Logger, createRedis } from "@alto/utils"
 import * as sentry from "@sentry/node"
 import type { MinMaxQueue } from "."
 import type { AltoConfig } from "../../createConfig"
@@ -42,7 +42,7 @@ class SortedTtlSet {
         config: AltoConfig
         redisEndpoint: string
     }) {
-        const redis = new Redis(redisEndpoint)
+        const redis = createRedis(redisEndpoint, { cluster: config.redisCluster })
         const queueValidity = config.gasPriceExpiry
 
         this.redis = redis

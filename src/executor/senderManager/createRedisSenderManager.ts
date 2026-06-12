@@ -1,5 +1,5 @@
-import type { Logger, Metrics } from "@alto/utils"
-import Redis from "ioredis"
+import { type Logger, type Metrics, createRedis } from "@alto/utils"
+import type { Redis } from "ioredis"
 import type { Account } from "viem"
 import { getAvailableWallets } from "."
 import type { AltoConfig } from "../../createConfig"
@@ -42,7 +42,9 @@ async function createRedisWalletPool({
     logger: Logger
     entries: string[]
 }) {
-    const keyPrefix = `${config.redisKeyPrefix}:${config.chainId}:wallet-pool`
+    // Hash tag groups both keys into a single slot so the Lua script's
+    // multi-key SADD is legal under Redis Cluster.
+    const keyPrefix = `${config.redisKeyPrefix}:{${config.chainId}:wallet-pool}`
     const availableKey = `${keyPrefix}:available`
     const registeredKey = `${keyPrefix}:registered`
 
@@ -90,7 +92,7 @@ export const createRedisSenderManager = async ({
         }
     )
 
-    const redis = new Redis(redisEndpoint)
+    const redis = createRedis(redisEndpoint, { cluster: config.redisCluster })
     const walletPool = await createRedisWalletPool({
         redis,
         config,

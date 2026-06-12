@@ -1,6 +1,10 @@
 import type { Logger, Metrics } from "@alto/utils"
-import { formatNativeBalance, scaleBigIntByPercent } from "@alto/utils"
-import Redis from "ioredis"
+import {
+    createRedis,
+    formatNativeBalance,
+    scaleBigIntByPercent
+} from "@alto/utils"
+import type { Redis } from "ioredis"
 import {
     type Account,
     type Address,
@@ -155,7 +159,9 @@ export const validateAndRefillWallets = async ({
     // performs the balance check/refill per interval. Fail-open on Redis errors.
     if (config.enableHorizontalScaling && config.redisEndpoint) {
         if (!redisClient) {
-            redisClient = new Redis(config.redisEndpoint)
+            redisClient = createRedis(config.redisEndpoint, {
+                cluster: config.redisCluster
+            })
         }
 
         const acquired = await redisClient

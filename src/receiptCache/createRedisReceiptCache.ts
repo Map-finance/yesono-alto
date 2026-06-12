@@ -2,9 +2,8 @@ import {
     type UserOperationReceipt,
     userOperationReceiptSchema
 } from "@alto/types"
-import { type Logger, asyncCallWithTimeout } from "@alto/utils"
+import { type Logger, asyncCallWithTimeout, createRedis } from "@alto/utils"
 import * as sentry from "@sentry/node"
-import Redis from "ioredis"
 import { type Hex, toHex } from "viem"
 import type { AltoConfig } from "../createConfig"
 import type { ReceiptCache } from "./index"
@@ -34,7 +33,7 @@ export const createRedisReceiptCache = ({
     logger: Logger
 }): ReceiptCache => {
     const REDIS_TIMEOUT = 500 // 500ms timeout for all Redis operations
-    const redis = new Redis(redisEndpoint)
+    const redis = createRedis(redisEndpoint, { cluster: config.redisCluster })
     const redisPrefix = `${config.redisKeyPrefix}:${config.chainId}:receipt-cache`
 
     const getKey = (userOpHash: Hex): string => {

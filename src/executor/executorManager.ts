@@ -6,9 +6,14 @@ import type {
     SubmittedBundleInfo,
     UserOperationBundle
 } from "@alto/types"
-import { type Logger, type Metrics, scaleBigIntByPercent } from "@alto/utils"
+import {
+    type Logger,
+    type Metrics,
+    createRedis,
+    scaleBigIntByPercent
+} from "@alto/utils"
 import * as sentry from "@sentry/node"
-import Redis from "ioredis"
+import type Redis from "ioredis"
 import type { Hex, WatchBlocksReturnType } from "viem"
 import type { AltoConfig } from "../createConfig"
 import type { BundleManager } from "./bundleManager"
@@ -74,7 +79,9 @@ export class ExecutorManager {
 
         if (config.enableHorizontalScaling && config.redisEndpoint) {
             this.redisBlockCache = {
-                redis: new Redis(config.redisEndpoint),
+                redis: createRedis(config.redisEndpoint, {
+                    cluster: config.redisCluster
+                }),
                 blockNumberKey: `${config.redisKeyPrefix}:${config.chainId}:watch-blocks:value`,
                 refreshGuardKey: `${config.redisKeyPrefix}:${config.chainId}:watch-blocks:lock`,
                 localBlockNumber: 0n

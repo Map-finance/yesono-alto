@@ -5,8 +5,8 @@ import {
     type UserOperation,
     userOpInfoSchema
 } from "@alto/types"
-import { getNonceKeyAndSequence, isDeployment } from "@alto/utils"
-import { Redis } from "ioredis"
+import { createRedis, getNonceKeyAndSequence, isDeployment } from "@alto/utils"
+import type { Redis } from "ioredis"
 import type { Logger } from "pino"
 import { toHex } from "viem/utils"
 import type { AltoConfig } from "../../createConfig"
@@ -44,10 +44,14 @@ class RedisOutstandingQueue implements OutstandingStore {
         redisEndpoint: string
         logger: Logger
     }) {
-        this.redis = new Redis(redisEndpoint, {})
+        this.redis = createRedis(redisEndpoint, {
+            cluster: config.redisCluster
+        })
 
-        // Initialize Redis key names
-        const redisPrefix = `${config.redisKeyPrefix}:${config.chainId}:${entryPoint}:outstanding`
+        // Hash tag groups all outstanding keys (including per-sender nonce
+        // queues) into one slot so the cross-key pipelines in
+        // add / remove / popConflicting remain legal under Redis Cluster.
+        const redisPrefix = `${config.redisKeyPrefix}:{${config.chainId}:${entryPoint}:outstanding}`
         this.readyQueue = `${redisPrefix}:ready-queue`
         this.senderNonceKeyPrefix = `${redisPrefix}:sender`
         this.userOpHashMap = `${redisPrefix}:userop-hash`

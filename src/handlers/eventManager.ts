@@ -1,6 +1,5 @@
-import { type Logger, asyncCallWithTimeout } from "@alto/utils"
+import { type Logger, asyncCallWithTimeout, createRedis } from "@alto/utils"
 import Queue, { type Queue as QueueType } from "bull"
-import Redis from "ioredis"
 import type { Hex } from "viem"
 import type { AltoConfig } from "../createConfig"
 import type { OpEventType } from "../types/schemas"
@@ -38,9 +37,15 @@ export class EventManager {
             this.logger.info(
                 `Using redis with queue name ${queueName} for userOp event queue (flush interval: ${flushInterval}ms)`
             )
-            const redis = new Redis(config.redisEventsQueueEndpoint)
+            const redis = createRedis(config.redisEventsQueueEndpoint, {
+                cluster: config.redisCluster
+            })
 
             this.redisEventManagerQueue = new Queue<QueueMessage>(queueName, {
+                // Under Redis Cluster, BullMQ requires a hash-tagged prefix
+                // so all internal queue keys (wait/active/completed/...) hash
+                // to the same slot.
+                prefix: config.redisCluster ? "{alto-bull}" : undefined,
                 createClient: () => {
                     return redis
                 },

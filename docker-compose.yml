@@ -1,0 +1,54 @@
+# alto ERC-4337 bundler — 独立部署 compose
+#
+# 用法：
+#   cd alto
+#   cp .env.example .env             # 填好 RPC、钱包、Redis endpoint
+#   docker compose up -d --build      # 首次约 5-10 分钟（Foundry 编译合约）
+#   docker compose logs -f
+#   curl http://localhost:3000/health   # 应返 "OK"
+#
+# 横向扩容（依赖 --enable-horizontal-scaling + 共享 Redis Cluster）：
+#   docker compose up -d --scale alto=3
+#   ⚠️ 多实例时把下方 ports 段去掉，前面套 LB（nginx / ALB / Cloudflare）
+
+services:
+  alto:
+    build: .
+    image: alto:local
+    restart: unless-stopped
+    # alto 用 CLI args 接配置（不读 env_file）。下面 ${VAR} 由 compose 在 parse
+    # 阶段从同目录的 .env 替换进来，私钥不会作为 env var 暴露到容器内进程环境。
+    # alto Dockerfile 的 ENTRYPOINT 是 `pnpm start`（= `node ... alto.js run`），
+    # 所以这里只写选项标志，不写 run 子命令。
+    command:
+      - --port=3000
+      - --rpc-url=${RPC_URL}
+      - --entrypoints=${ENTRYPOINTS}
+      - --executor-private-keys=${EXECUTOR_PRIVATE_KEYS}
+      - --utility-private-key=${UTILITY_PRIVATE_KEY}
+      - --min-executor-balance=${MIN_EXECUTOR_BALANCE:-0}
+      - --gas-price-bump=${GAS_PRICE_BUMP:-120}
+      - --skip-local-gas-calculations=true
+      - --safe-mode=false
+      - --default-api-version=v2
+      - --enable-horizontal-scaling=true
+      - --redis-cluster=${REDIS_CLUSTER:-true}
+      - --redis-endpoint=${REDIS_ENDPOINT}
+      - --redis-key-prefix=${REDIS_KEY_PREFIX:-alto}
+      - --enable-redis-receipt-cache=true
+    ports:
+      - "${ALTO_HOST_PORT:-3000}:3000"
+    mem_limit: 2g
+    cpus: 2.0
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+        compress: "true"
