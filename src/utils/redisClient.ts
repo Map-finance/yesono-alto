@@ -5,6 +5,7 @@ import {
     type ClusterOptions,
     type ClusterNode
 } from "ioredis"
+import type { ConnectionOptions as TlsConnectionOptions } from "node:tls"
 
 /**
  * Connection factory that returns either a single-node ioredis Redis or
@@ -40,9 +41,21 @@ export function createRedis(
         const { host, port, tls, password, username } =
             parseEndpoint(endpoint)
         const nodes: ClusterNode[] = [{ host, port }]
+        // AWS ElastiCache Cluster Mode Enabled returns VPC-internal IPs in
+        // CLUSTER SLOTS responses (not the per-node hostnames). The cluster's
+        // wildcard cert is issued for *.<cluster>.<region>.cache.amazonaws.com,
+        // so when ioredis TLS-handshakes against those IPs, default hostname
+        // verification rejects the cert and the connection drops.
+        //
+        // Skipping hostname verification keeps the rest of TLS intact
+        // (cert chain validation, expiry, encryption) and is the
+        // approach AWS recommends for ElastiCache cluster-mode TLS clients.
+        const tlsWithSkippedHostname: TlsConnectionOptions | undefined = tls
+            ? { ...tls, checkServerIdentity: () => undefined }
+            : undefined
         const cluster = new Cluster(nodes, {
             redisOptions: {
-                tls,
+                tls: tlsWithSkippedHostname,
                 password,
                 username,
                 ...opts.redisOptions
